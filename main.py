@@ -3,7 +3,6 @@ import random
 import cv2
 import os
 
-
 def make_circle_list(height, width, r_mean, r_std_dev, n, exclude=[]):
     # Generate a list of non-overlapping circles
     # Return circles as list of tuples [(x, y, r), (x, y, r)]
@@ -115,10 +114,9 @@ def generate_radius(r_mean, r_std_dev):
     return radius
     
 
-def draw_circles(img, height, width, r_mean, r_std_dev, n, color, thickness=-1, exclude=[]):
-    # Draw a group of non-overlapping circles with statistical inputs
-    # Defaul thickness of -1 results in filled-in circles
-    circle_list = make_circle_list(height, width, r_mean, r_std_dev, n, exclude)
+def draw_circles(img, circle_list, color, thickness=-1):
+    # Draw each circle in a list of circles
+    # Default thickness of -1 results in filled-in circles
 
     if circle_list is None:
         return
@@ -127,7 +125,7 @@ def draw_circles(img, height, width, r_mean, r_std_dev, n, color, thickness=-1, 
         x, y, radius = circle
         center = (x, y)
         cv2.circle(img, center, radius, color, thickness)
-    return circle_list
+    return img
 
 
 def create_background(height, width, color):
@@ -144,9 +142,11 @@ def save_image(img, name, directory):
     name = name + '.png'
     name_blur = name + '_blur.png'
 
+    starting_dir = os.getcwd()
     os.chdir(directory)
     cv2.imwrite(name, img)
     cv2.imwrite(name_blur, img_blur)
+    os.chdir(starting_dir)
 
 
 def main():
@@ -154,26 +154,47 @@ def main():
     height = 1000
     background_color = [0,0,0]
 
-    img = create_background(height, width, background_color)
+    background_img = create_background(height, width, background_color)
 
-    # Generate AP particles
-    r_mean = 35
-    r_std_dev = 5
-    n = 100
-    color = [201, 27, 18] # [b, g, r]
-    AP_list = draw_circles(img, height, width, r_mean, r_std_dev, n, color)
+    num_imgs = 100
 
-    # Generate void particles
-    r_mean = 15
-    r_std_dev = 10
-    n = 75
-    color = [53, 26, 232] # [b, g, r]
-    draw_circles(img, height, width, r_mean, r_std_dev, n, color, -1, AP_list)
+    for itr in range(num_imgs):
+        # Generate AP particles
+        r_mean = 72.8
+        r_std_dev = 37
+        n = 15
+        color = [201, 27, 18] # [b, g, r]
+        AP_list = make_circle_list(height, width, r_mean, r_std_dev, n)
+        AP_img = draw_circles(background_img.copy(), AP_list, color)
 
-    save_dir = './output'
-    image_name = 'circles'
+        # Generate void particles
+        r_mean = 10
+        r_std_dev = 6
+        n = 80
+        color = [53, 26, 232] # [b, g, r]
+        void_list = make_circle_list(height, width, r_mean, r_std_dev, n, exclude=AP_list)
+        void_img = draw_circles(background_img.copy(), void_list, color)
 
-    save_image(img, image_name, save_dir)
+        # Analyze distributions
+        AP_radii_list = [t[2] for t in AP_list]
+        AP_radii_array = np.array(AP_radii_list)
+        AP_mean = round(np.mean(AP_radii_array), 1)
+        AP_std_dev = round(np.std(AP_radii_array), 1)
+        '''print(f'AP Particle Mean: {AP_mean}  AP Standard Deviation: {AP_std_dev}')'''
+        
+        void_radii_list = [t[2] for t in void_list]
+        void_radii_array = np.array(void_radii_list)
+        void_mean = round(np.mean(void_radii_array),1)
+        void_std_dev = round(np.std(void_radii_array), 1)
+        '''print(f'Void Particle Mean: {void_mean}  Void Standard Deviation: {void_std_dev}')'''
+
+
+        # Combine imgs and save output
+        save_dir = './output'
+        image_name = (f'{(1+itr):03d}_APmean_{AP_mean}_APstd_{AP_std_dev}___VOIDmean_{void_mean}_VOIDstd_{void_std_dev}')
+
+        final_img = cv2.addWeighted(AP_img, 1, void_img, 1, 0)
+        save_image(final_img, image_name, save_dir)
 
 
 if __name__ == "__main__":

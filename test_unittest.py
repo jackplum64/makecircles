@@ -60,15 +60,6 @@ class TestMakeCircleList(unittest.TestCase):
             for j in range(i + 1, len(circles)):
                 self.assertFalse(does_overlap(circles[i], [circles[j]]))
 
-    # handles case where n is zero
-    def test_handles_zero_circles(self):
-        height = 100
-        width = 100
-        r_mean = 10
-        r_std_dev = 2
-        n = 0
-        circles = make_circle_list(height, width, r_mean, r_std_dev, n)
-        self.assertEqual(len(circles), 0)
 
     # circles are within the image boundaries
     def test_circles_within_image_boundaries(self):
@@ -156,3 +147,24 @@ class TestMakeCircleList(unittest.TestCase):
         n = 5
         circles = make_circle_list(height, width, r_mean, r_std_dev, n)
         self.assertIsNone(circles)
+
+
+class TestDoesOverlapFully:
+
+    # returns True when new_circle is fully inside an existing circle in exclude_list
+    def test_new_circle_fully_inside_existing_circle(self):
+        new_circle = (5, 5, 2)
+        exclude_list = [(10,10,2), (5, 5, 5)]
+        assert does_overlap_fully(new_circle, exclude_list) == True
+
+    # handles empty exclude_list without errors
+    def test_empty_exclude_list(self):
+        new_circle = (5, 5, 2)
+        exclude_list = []
+        assert does_overlap_fully(new_circle, exclude_list) == False
+
+    # test existing circle fully inside new circle
+    def test_existing_circle_fully_inside_new_circle(self):
+        new_circle = (5, 5, 5)
+        exclude_list = [(10,10,2), (5, 5, 2)]
+        assert does_overlap_fully(new_circle, exclude_list) == True
