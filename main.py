@@ -4,7 +4,7 @@ import cv2
 import os
 
 
-def make_circle_list(height, width, r_mean, r_std_dev, n):
+def make_circle_list(height, width, r_mean, r_std_dev, n, exclude=[]):
     # Generate a list of non-overlapping circles
     # Return circles as list of tuples [(x, y, r), (x, y, r)]
 
@@ -27,6 +27,9 @@ def make_circle_list(height, width, r_mean, r_std_dev, n):
 
         if new_circle is None:
             continue
+        if len(exclude) > 0:
+            if does_overlap_fully(new_circle, exclude) is True:
+                continue
         if does_overlap(new_circle, circle_list) is True:
             continue
 
@@ -58,6 +61,7 @@ def does_overlap(new_circle, circle_list):
     # Takes circle as tuple and list of circle as list of tuples
     # Checks circle against list of circles for overlap
     # If overlap, return True.  Otherwise return False
+
     x_new, y_new, radius_new = new_circle
     new_point = np.array([x_new, y_new])
     for circle in circle_list:
@@ -69,6 +73,27 @@ def does_overlap(new_circle, circle_list):
 
         if euclidian_distance <= min_distance:
             return True
+    return False
+
+
+def does_overlap_fully(new_circle, exclude_list):
+    # Takes circle as tuple and list of circle as list of tuples
+    # Checks circle against list of circles for full overlap
+    # If full overlap, return True.  Otherwise return False
+    x_new, y_new, radius_new = new_circle
+    new_point = np.array([x_new, y_new])
+    for circle in exclude_list:
+        x, y, radius = circle
+        point = np.array([x, y])
+        euclidian_distance = np.linalg.norm(new_point - point)
+        # Case 1
+        if radius > (euclidian_distance + radius_new):
+            return True
+
+        # Case 2
+        if radius_new > (euclidian_distance + radius):
+            return True
+        
     return False
 
 
@@ -90,10 +115,10 @@ def generate_radius(r_mean, r_std_dev):
     return radius
     
 
-def draw_circles(img, height, width, r_mean, r_std_dev, n, color, thickness=-1):
+def draw_circles(img, height, width, r_mean, r_std_dev, n, color, thickness=-1, exclude=[]):
     # Draw a group of non-overlapping circles with statistical inputs
     # Defaul thickness of -1 results in filled-in circles
-    circle_list = make_circle_list(height, width, r_mean, r_std_dev, n)
+    circle_list = make_circle_list(height, width, r_mean, r_std_dev, n, exclude)
 
     if circle_list is None:
         return
@@ -102,6 +127,7 @@ def draw_circles(img, height, width, r_mean, r_std_dev, n, color, thickness=-1):
         x, y, radius = circle
         center = (x, y)
         cv2.circle(img, center, radius, color, thickness)
+    return circle_list
 
 
 def create_background(height, width, color):
@@ -133,16 +159,16 @@ def main():
     # Generate AP particles
     r_mean = 35
     r_std_dev = 5
-    n = 10
+    n = 100
     color = [201, 27, 18] # [b, g, r]
-    draw_circles(img, height, width, r_mean, r_std_dev, n, color)
+    AP_list = draw_circles(img, height, width, r_mean, r_std_dev, n, color)
 
     # Generate void particles
     r_mean = 15
     r_std_dev = 10
-    n = 25
+    n = 75
     color = [53, 26, 232] # [b, g, r]
-    draw_circles(img, height, width, r_mean, r_std_dev, n, color)
+    draw_circles(img, height, width, r_mean, r_std_dev, n, color, -1, AP_list)
 
     save_dir = './output'
     image_name = 'circles'
