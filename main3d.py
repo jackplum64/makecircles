@@ -100,37 +100,19 @@ def create_img():
 
 
 
-def run_sample(spheres):
-    radius = random.randint(10, 100)
-    x = random.randint(0 + radius, 1000 - radius)
-    y = random.randint(0 + radius, 1000 - radius)
-    z = random.randint(0 + radius, 1000 - radius)
-    
-    new_sphere = np.array([x, y, z, radius])
-
-    t1 = time.time()
-    bool = does_overlap(new_sphere, spheres)
-    t2 = time.time()
-
-    return np.array([t2-t1, bool])
-
-
-
-
-
 
 def main():
     boundaries = (1000, 1000, 1000)
 
     AP = SphereGroup(25, 5, [201, 27, 18])
-    AP_sphere_list = AP.make_sphere_list(boundaries, 3000)
+    AP_sphere_list = AP.make_sphere_list(boundaries, 2000)
     AP_points = np.array([s[:3] for s in AP_sphere_list])
     AP_radii = np.array([s[3] for s in AP_sphere_list])
 
     print(AP_radii)
     
     void = SphereGroup(15, 2, [53, 26, 232])
-    void_sphere_list = void.make_sphere_list(boundaries, 10000)
+    void_sphere_list = void.make_sphere_list(boundaries, 6000)
     void_points = np.array([s[:3] for s in void_sphere_list])
     void_radii = np.array([s[3] for s in void_sphere_list])
 
@@ -141,6 +123,7 @@ def main():
     mlab.points3d(void_points[:, 0], void_points[:, 1], void_points[:, 2], void_radii,
                   color=tuple(np.array(void.color) / 255.0), scale_factor=1, resolution=20, opacity=0.6)
     mlab.show()
+
 
 
 if __name__ == "__main__":
