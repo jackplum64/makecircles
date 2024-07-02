@@ -191,6 +191,7 @@ def main():
 
         # Combine imgs and save output
         save_dir = './output'
+        os.makedirs(save_dir, exist_ok=True)
         image_name = (f'{(1+itr):03d}_APmean_{AP_mean}_APstd_{AP_std_dev}___VOIDmean_{void_mean}_VOIDstd_{void_std_dev}')
 
         final_img = cv2.addWeighted(AP_img, 1, void_img, 1, 0)
