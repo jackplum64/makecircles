@@ -124,9 +124,7 @@ class TestMakeCircleList(unittest.TestCase):
         r_std_dev = 0
         n = 5
         circles = make_circle_list(height, width, r_mean, r_std_dev, n)
-        self.assertEqual(len(circles), n)
-        for circle in circles:
-            self.assertNotEqual(circle[2], 0)
+        self.assertIsNone(circles)
 
     # handles case where height or width is too small to fit any circles
     def test_handles_small_height_or_width_fixed(self):
