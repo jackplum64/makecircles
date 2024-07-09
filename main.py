@@ -144,7 +144,7 @@ def save_image(img, name, directory):
 
     starting_dir = os.getcwd()
     os.chdir(directory)
-    cv2.imwrite(name, img)
+    #cv2.imwrite(name, img)
     cv2.imwrite(name_blur, img_blur)
     os.chdir(starting_dir)
 
@@ -162,7 +162,7 @@ def main():
         # Generate AP particles
         r_mean = 72.8
         r_std_dev = 37
-        n = 15
+        n = 200
         color = [255, 0, 0] # [b, g, r]
         AP_list = make_circle_list(height, width, r_mean, r_std_dev, n)
         AP_img = draw_circles(background_img.copy(), AP_list, color)
@@ -196,6 +196,7 @@ def main():
 
         final_img = cv2.addWeighted(AP_img, 1, void_img, 1, 0)
         save_image(final_img, image_name, save_dir)
+        print(f'Finished Image: {(itr+1)} of {num_imgs}')
 
 
 if __name__ == "__main__":
