@@ -2,6 +2,10 @@ import numpy as np
 import random
 import cv2
 import os
+import time
+import math
+import multiprocessing
+import concurrent.futures
 
 def make_circle_list(height, width, r_mean, r_std_dev, n, exclude=[]):
     # Generate a list of non-overlapping circles
@@ -56,7 +60,7 @@ def make_circle(height, width, r_mean, r_std_dev):
     return x, y, radius
 
 
-def does_overlap(new_circle, circle_list):
+def does_overlap_(new_circle, circle_list):
     # Takes circle as tuple and list of circle as list of tuples
     # Checks circle against list of circles for overlap
     # If overlap, return True.  Otherwise return False
@@ -75,7 +79,22 @@ def does_overlap(new_circle, circle_list):
     return False
 
 
-def does_overlap_fully(new_circle, exclude_list):
+def does_overlap(new_circle, circle_list):
+    # x, y, r = new_circle
+    for circle in circle_list:
+        min_distance = circle[2] + new_circle[2]
+
+        if abs(circle[0] - new_circle[0]) > min_distance:
+            continue
+        if abs(circle[1] - new_circle[1]) > min_distance:
+            continue
+
+        if ((circle[0] - new_circle[0])**2 + (circle[1] - new_circle[1])**2) <= min_distance**2:
+            return True
+    return False
+
+
+def does_overlap_fully_(new_circle, exclude_list):
     # Takes circle as tuple and list of circle as list of tuples
     # Checks circle against list of circles for full overlap
     # If full overlap, return True.  Otherwise return False
@@ -94,6 +113,25 @@ def does_overlap_fully(new_circle, exclude_list):
             return True
         
     return False
+
+
+def does_overlap_fully(new_circle, exclude_list):
+    for circle in exclude_list:
+        if abs(circle[0] - new_circle[0]) > abs(circle[2] - new_circle[2]):
+            continue
+        if abs(circle[1] - new_circle[1]) > abs(circle[2] - new_circle[2]):
+            continue
+
+        distance = math.sqrt((circle[0] - new_circle[0])**2 + (circle[1] - new_circle[1])**2)
+
+        if circle[2] > (distance + new_circle[2]):
+            return True
+        
+        if new_circle[2] > (distance + circle[2]):
+            return True
+        
+    return False
+
 
 
 def generate_radius(r_mean, r_std_dev):
@@ -149,7 +187,47 @@ def save_image(img, name, directory):
     os.chdir(starting_dir)
 
 
+def process_image(itr, width, height, background_color, background_img):
+    r_mean = 72.8
+    r_std_dev = 37
+    n = 200
+    color = [255, 0, 0] # [b, g, r]
+    AP_list = make_circle_list(height, width, r_mean, r_std_dev, n)
+    AP_img = draw_circles(background_img.copy(), AP_list, color)
+
+    # Generate void particles
+    r_mean = 10
+    r_std_dev = 6
+    n = 80
+    color = [0, 0, 255] # [b, g, r]
+    void_list = make_circle_list(height, width, r_mean, r_std_dev, n, exclude=AP_list)
+    void_img = draw_circles(background_img.copy(), void_list, color)
+
+    # Analyze distributions
+    AP_radii_list = [t[2] for t in AP_list]
+    AP_radii_array = np.array(AP_radii_list)
+    AP_mean = round(np.mean(AP_radii_array), 1)
+    AP_std_dev = round(np.std(AP_radii_array), 1)
+    '''print(f'AP Particle Mean: {AP_mean}  AP Standard Deviation: {AP_std_dev}')'''
+    
+    void_radii_list = [t[2] for t in void_list]
+    void_radii_array = np.array(void_radii_list)
+    void_mean = round(np.mean(void_radii_array),1)
+    void_std_dev = round(np.std(void_radii_array), 1)
+    '''print(f'Void Particle Mean: {void_mean}  Void Standard Deviation: {void_std_dev}')'''
+
+
+    # Combine imgs and save output
+    save_dir = './output'
+    os.makedirs(save_dir, exist_ok=True)
+    image_name = (f'{(1+itr):03d}_APmean_{AP_mean}_APstd_{AP_std_dev}___VOIDmean_{void_mean}_VOIDstd_{void_std_dev}')
+
+    final_img = cv2.addWeighted(AP_img, 1, void_img, 1, 0)
+    save_image(final_img, image_name, save_dir)
+
+
 def main():
+    start = time.perf_counter()
     width = 1000
     height = 1000
     background_color = [0,0,0]
@@ -157,45 +235,22 @@ def main():
     background_img = create_background(height, width, background_color)
 
     num_imgs = 100
+    multi = True
 
-    for itr in range(num_imgs):
-        # Generate AP particles
-        r_mean = 72.8
-        r_std_dev = 37
-        n = 15
-        color = [201, 27, 18] # [b, g, r]
-        AP_list = make_circle_list(height, width, r_mean, r_std_dev, n)
-        AP_img = draw_circles(background_img.copy(), AP_list, color)
+    num_cpus = multiprocessing.cpu_count()
+    if multi == True:
+        with concurrent.futures.ProcessPoolExecutor() as executor:
+            futures = [executor.submit(process_image, itr, width, height, background_color, background_img) for itr in range(num_imgs)]
+            concurrent.futures.wait(futures)
+       
 
-        # Generate void particles
-        r_mean = 10
-        r_std_dev = 6
-        n = 80
-        color = [53, 26, 232] # [b, g, r]
-        void_list = make_circle_list(height, width, r_mean, r_std_dev, n, exclude=AP_list)
-        void_img = draw_circles(background_img.copy(), void_list, color)
-
-        # Analyze distributions
-        AP_radii_list = [t[2] for t in AP_list]
-        AP_radii_array = np.array(AP_radii_list)
-        AP_mean = round(np.mean(AP_radii_array), 1)
-        AP_std_dev = round(np.std(AP_radii_array), 1)
-        '''print(f'AP Particle Mean: {AP_mean}  AP Standard Deviation: {AP_std_dev}')'''
-        
-        void_radii_list = [t[2] for t in void_list]
-        void_radii_array = np.array(void_radii_list)
-        void_mean = round(np.mean(void_radii_array),1)
-        void_std_dev = round(np.std(void_radii_array), 1)
-        '''print(f'Void Particle Mean: {void_mean}  Void Standard Deviation: {void_std_dev}')'''
+    else:
+        for itr in range(num_imgs):
+            process_image(itr, width, height, background_color, background_img)
 
 
-        # Combine imgs and save output
-        save_dir = './output'
-        os.makedirs(save_dir, exist_ok=True)
-        image_name = (f'{(1+itr):03d}_APmean_{AP_mean}_APstd_{AP_std_dev}___VOIDmean_{void_mean}_VOIDstd_{void_std_dev}')
-
-        final_img = cv2.addWeighted(AP_img, 1, void_img, 1, 0)
-        save_image(final_img, image_name, save_dir)
+    end = time.perf_counter()
+    print(f'Total Time: {end - start}')
 
 
 if __name__ == "__main__":
