@@ -163,7 +163,7 @@ def main():
         r_mean = 72.8
         r_std_dev = 37
         n = 15
-        color = [201, 27, 18] # [b, g, r]
+        color = [255, 0, 0] # [b, g, r]
         AP_list = make_circle_list(height, width, r_mean, r_std_dev, n)
         AP_img = draw_circles(background_img.copy(), AP_list, color)
 
@@ -171,7 +171,7 @@ def main():
         r_mean = 10
         r_std_dev = 6
         n = 80
-        color = [53, 26, 232] # [b, g, r]
+        color = [0, 0, 255] # [b, g, r]
         void_list = make_circle_list(height, width, r_mean, r_std_dev, n, exclude=AP_list)
         void_img = draw_circles(background_img.copy(), void_list, color)
 
