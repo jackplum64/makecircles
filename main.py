@@ -60,24 +60,6 @@ def make_circle(height, width, r_mean, r_std_dev):
     return x, y, radius
 
 
-def does_overlap_(new_circle, circle_list):
-    # Takes circle as tuple and list of circle as list of tuples
-    # Checks circle against list of circles for overlap
-    # If overlap, return True.  Otherwise return False
-
-    x_new, y_new, radius_new = new_circle
-    new_point = np.array([x_new, y_new])
-    for circle in circle_list:
-        x, y, radius = circle
-        min_distance = radius_new + radius
-        point = np.array([x, y])
-
-        euclidian_distance = np.linalg.norm(new_point - point)
-
-        if euclidian_distance <= min_distance:
-            return True
-    return False
-
 
 def does_overlap(new_circle, circle_list):
     # x, y, r = new_circle
@@ -91,27 +73,6 @@ def does_overlap(new_circle, circle_list):
 
         if ((circle[0] - new_circle[0])**2 + (circle[1] - new_circle[1])**2) <= min_distance**2:
             return True
-    return False
-
-
-def does_overlap_fully_(new_circle, exclude_list):
-    # Takes circle as tuple and list of circle as list of tuples
-    # Checks circle against list of circles for full overlap
-    # If full overlap, return True.  Otherwise return False
-    x_new, y_new, radius_new = new_circle
-    new_point = np.array([x_new, y_new])
-    for circle in exclude_list:
-        x, y, radius = circle
-        point = np.array([x, y])
-        euclidian_distance = np.linalg.norm(new_point - point)
-        # Case 1
-        if radius > (euclidian_distance + radius_new):
-            return True
-
-        # Case 2
-        if radius_new > (euclidian_distance + radius):
-            return True
-        
     return False
 
 
