@@ -1,8 +1,26 @@
 import numpy as np
+from pathlib import Path
+import os
+import cv2
+import math
+import numba
+from numba import int32, float32, types
+from numba.experimental import jitclass
 
 
+spec = [
+    ('height', float32),
+    ('width', float32),
+    ('r_mean', float32),
+    ('r_std_dev', float32),
+    ('size', int32),
+    ('circle_array', float32[:]),
+    ('radius_array', float32[:]),
+    ('circle_list', types.ListType(types.UniTuple(float32, 3))),
+]
 
 
+@jitclass(spec)
 class CircleGroup:
     def __init__(self, boundaries, size, r_mean, r_std_dev):
         self.height, self.width = boundaries
@@ -12,8 +30,34 @@ class CircleGroup:
 
 
     def make_circle_array(self):
+        exclude = None
+        circle_array = np.zeros((self.size, 3), np.float32)
+        itr = 0
+        self.generate_radius_array()
+        for radius in self.radius_array:
+            new_circle = self.make_circle(radius)
 
-        pass
+            if self.does_overlap(new_circle) is True:
+                continue
+            if exclude is not None:
+                if self.does_overlap_fully(new_circle, exclude) is True:
+                    continue
+            
+            circle_array[itr][0] = new_circle[0]
+            circle_array[itr][1] = new_circle[1]
+            circle_array[itr][2] = new_circle[2]
+            itr += 1
+        return circle_array
+
+    
+    def make_circle(self, radius):
+        radius = int(radius)
+        xhi = int(self.width - radius)
+        yhi = int(self.height - radius)
+
+        x = np.random.randint(radius, xhi)
+        y = np.random.randint(radius, yhi)
+        return x, y, radius
 
 
     def init_circles(self):
@@ -21,33 +65,51 @@ class CircleGroup:
         xhi_array =  self.width - self.radius_array
         yhi_array =  self.height - self.radius_array
 
-        x_array = np.random.randint(self.radius_array, xhi_array, self.size, dtype=int32)
-        y_array = np.random.randint(self.radius_array, yhi_array, self.size, dtype=int32)
+        x_array = np.random.randint(self.radius_array, xhi_array, self.size)
+        y_array = np.random.randint(self.radius_array, yhi_array, self.size)
 
     
     def generate_radius_array(self):
-        self.radius_array = np.random.normal(self.r_mean, self.r_std_dev, self.size)
-        self.radius_array = np.around(self.radius_array, decimals=0).astype(np.int32)
-        self.radius_array.sort()
+        self.radius_array = np.random.normal(self.r_mean, self.r_std_dev, self.size).astype(np.float32)
+        self.radius_array = np.around(self.radius_array, decimals=0).astype(np.float32)
+        self.radius_array[::-1].sort()
         # TODO: add rejection condition if total circle volume exceeds 90% image volume
         return self.radius_array
 
     
     def remove_initial_overlap(self, x_array, y_array):
-
-
-
-        radius_sq_array = np.square(self.radius_array)
-
         pass
 
 
     def does_overlap(self, new_circle):
-        pass
+        for circle in self.circle_list:
+            min_distance = circle[2] + new_circle[2]
+
+            if abs(circle[0] - new_circle[0]) > min_distance:
+                continue
+            if abs(circle[1] - new_circle[1]) > min_distance:
+                continue
+
+            if ((circle[0] - new_circle[0])**2 + (circle[1] - new_circle[1])**2) <= min_distance**2:
+                return True
+        return False
 
 
-    def does_overlap_fully(self, new_circle):
-        pass
+    def does_overlap_fully(self, new_circle, exclude_list):
+        for circle in exclude_list:
+            if abs(circle[0] - new_circle[0]) > abs(circle[2] - new_circle[2]):
+                continue
+            if abs(circle[1] - new_circle[1]) > abs(circle[2] - new_circle[2]):
+                continue
+
+            distance = math.sqrt((circle[0] - new_circle[0])**2 + (circle[1] - new_circle[1])**2)
+
+            if circle[2] > (distance + new_circle[2]):
+                return True
+            
+            if new_circle[2] > (distance + circle[2]):
+                return True
+        return False
 
 
 
@@ -75,8 +137,8 @@ class Canvas:
         for count in self.draw_guide:
             image = self.background.copy()
             for row in range(pointer, pointer + count):
-                draw_circle(image, (self.draw_array[row][0], self.draw_array[row][1]), self.draw_array[row][2], 
-                           (self.draw_array[row][3], self.draw_array[row][4], self.draw_array[row][5])) # self, (x,y), r, (color))
+                self.draw_circle(image, (self.draw_array[row][0], self.draw_array[row][1]), self.draw_array[row][2], 
+                                (self.draw_array[row][3], self.draw_array[row][4], self.draw_array[row][5])) # self, (x,y), r, (color))
                            
             images.append(image)
             pointer += count
@@ -125,6 +187,9 @@ class Canvas:
 
 
 def main():
+    AP = CircleGroup((1000,1000), 200, 70, 10)
+    circle_array = AP.make_circle_array()
+
     pass
 
 
