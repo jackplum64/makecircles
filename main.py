@@ -4,7 +4,7 @@ import cv2
 import os
 import time
 import math
-import multiprocessing
+from pathlib import Path
 import concurrent.futures
 
 def make_circle_list(height, width, r_mean, r_std_dev, n, exclude=[]):
@@ -129,59 +129,81 @@ def draw_circles(img, circle_list, color, thickness=-1):
 
 def create_background(height, width, color):
     # Create background image of specified size and color
-    blank_image = np.ones((height, width, 3), np.uint8)
-    blank_image[:] = color
+    if color == [0, 0, 0]:
+        blank_image = np.zeros((height, width, 3), np.uint8)
+    else:
+        blank_image = np.ones((height, width, 3), np.uint8)
+        blank_image[:] = color
     return blank_image
 
 
-def save_image(img, name, directory):
+def save_image(image, file_name, dir_name):
+    parent_directory = Path(__file__).parent
+    target_directory = os.path.join(parent_directory, dir_name)
+    os.makedirs(target_directory, exist_ok=True)
+
     ksize = [9,9] # Gaussian blur kernal size
-    img_blur = cv2.GaussianBlur(img, ksize, 0)
+    img_blur = cv2.GaussianBlur(image, ksize, 0)
 
-    name = name + '.png'
-    name_blur = name + '_blur.png'
+    filepath = os.path.join(target_directory, file_name)
+    cv2.imwrite(filepath, img_blur)
 
-    starting_dir = os.getcwd()
-    os.chdir(directory)
-    cv2.imwrite(name, img)
-    cv2.imwrite(name_blur, img_blur)
-    os.chdir(starting_dir)
+    return filepath, target_directory
 
 
 def process_image(itr, width, height, background_color, background_img):
-    r_mean = 72.8
-    r_std_dev = 37
+    r_mean_input = 72.8
+    r_mean_target = 25 # Target mean for image rejection criteria
+    r_mean_delta = 10 # Allowable difference for rejection criteria - large value allows all images to print
+    r_std_dev_input = 37
+    r_std_dev_target = 20 # Target std dev for image rejection criteria
+    r_std_dev_delta = 5 # Allowable difference for rejection criteria - large value allows all images to print
     n = 200
     color = [255, 0, 0] # [b, g, r]
-    AP_list = make_circle_list(height, width, r_mean, r_std_dev, n)
+    AP_list = make_circle_list(height, width, r_mean_target, r_std_dev_target, n)
     AP_img = draw_circles(background_img.copy(), AP_list, color)
-
-    # Generate void particles
-    r_mean = 10
-    r_std_dev = 6
-    n = 80
-    color = [0, 0, 255] # [b, g, r]
-    void_list = make_circle_list(height, width, r_mean, r_std_dev, n, exclude=AP_list)
-    void_img = draw_circles(background_img.copy(), void_list, color)
 
     # Analyze distributions
     AP_radii_list = [t[2] for t in AP_list]
     AP_radii_array = np.array(AP_radii_list)
     AP_mean = round(np.mean(AP_radii_array), 1)
     AP_std_dev = round(np.std(AP_radii_array), 1)
-    '''print(f'AP Particle Mean: {AP_mean}  AP Standard Deviation: {AP_std_dev}')'''
-    
+
+    if abs(AP_mean - r_mean_target) > r_mean_delta:
+        print(f'Failure 1: AP Mean: {AP_mean}  Target Mean: {r_mean_target}')
+        return None
+    if abs(AP_std_dev - r_std_dev_target) > r_std_dev_delta:
+        print(f'Failure 2: AP std dev: {AP_std_dev}  Target std dev: {r_std_dev_target}')
+        return None
+
+    # Generate void particles
+    r_mean_input = 10
+    r_mean_target = 10 # Target mean for image rejection criteria
+    r_mean_delta = 2 # Allowable difference for rejection criteria
+    r_std_dev_input = 6
+    r_std_dev_target = 6 # Target std dev for image rejection criteria
+    r_std_dev_delta = 2 # Allowable difference for rejection criteria
+    n = 80
+    color = [0, 0, 255] # [b, g, r]
+    void_list = make_circle_list(height, width, r_mean_target, r_std_dev_target, n, exclude=AP_list)
+    void_img = draw_circles(background_img.copy(), void_list, color)
+
     void_radii_list = [t[2] for t in void_list]
     void_radii_array = np.array(void_radii_list)
     void_mean = round(np.mean(void_radii_array),1)
     void_std_dev = round(np.std(void_radii_array), 1)
-    '''print(f'Void Particle Mean: {void_mean}  Void Standard Deviation: {void_std_dev}')'''
 
+    if abs(void_mean - r_mean_target) > r_mean_delta:
+        print(f'Failure 3: VOID Mean: {void_mean}  Target Mean: {r_mean_target}')
+        return None
+    if abs(void_std_dev - r_std_dev_target) > r_std_dev_delta:
+        print(f'Failure 4: VOID std dev: {void_std_dev}  Target std dev: {r_std_dev_target}')
+        return None
 
     # Combine imgs and save output
-    save_dir = './output'
-    os.makedirs(save_dir, exist_ok=True)
-    image_name = (f'{(1+itr):03d}_APmean_{AP_mean}_APstd_{AP_std_dev}___VOIDmean_{void_mean}_VOIDstd_{void_std_dev}')
+    
+    image_name = (f'{(1+itr):03d}_APmean_{AP_mean}_APstd_{AP_std_dev}___VOIDmean_{void_mean}_VOIDstd_{void_std_dev}.png')
+    save_dir = 'output'
 
     final_img = cv2.addWeighted(AP_img, 1, void_img, 1, 0)
     save_image(final_img, image_name, save_dir)
@@ -198,7 +220,7 @@ def main():
     num_imgs = 100
     multi = True
 
-    num_cpus = multiprocessing.cpu_count()
+    num_cpus = os.cpu_count()
     if multi == True:
         with concurrent.futures.ProcessPoolExecutor() as executor:
             futures = [executor.submit(process_image, itr, width, height, background_color, background_img) for itr in range(num_imgs)]
