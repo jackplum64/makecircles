@@ -18,8 +18,8 @@ class CircleGroup:
 
     def init_circles(self):
 
-        xhi_array =  self.radius_array - self.width
-        yhi_array =  self.radius_array - self.height
+        xhi_array =  self.width - self.radius_array
+        yhi_array =  self.height - self.radius_array
 
         x_array = np.random.randint(self.radius_array, xhi_array, self.size, dtype=int32)
         y_array = np.random.randint(self.radius_array, yhi_array, self.size, dtype=int32)
@@ -35,7 +35,7 @@ class CircleGroup:
     
     def remove_initial_overlap(self, x_array, y_array):
 
-        
+
 
         radius_sq_array = np.square(self.radius_array)
 
